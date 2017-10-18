@@ -5,6 +5,12 @@
      ],
      "compilerOptions": {
          "noImplicitAny": true,
-         "target": "es5"
+         "strictNullChecks": true,
+         "noImplicitThis": true,
+         "declaration": true,
+
+         "target": "es6",
+         "module": "commonjs",
+         "lib": ["es5", "es6"]
      }
  }
