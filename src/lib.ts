@@ -1,10 +1,24 @@
-export type Decl =
-    | { kind: "FreeText", tag: string }
-    | { kind: "Keywords", tag: string, data: string[] }
-    | { kind: "Trait", tag: string, data: [string, Ty][] }
-    | { kind: "TyDec", tag: string, data: Ty };
+import {
+    String,
+    Literal,
+    Record,
+    Union,
+    Entity,
+    Runtype
+} from "../lib/runtypes/src/index";
 
-export type Ty =
-    | { kind: "Def", data: string }
-    | { kind: "Lit", data: string }
-    | { kind: "Rec", data: [string, Ty][] };
+import { Response, Wit } from "./wit";
+
+export const FreeText = (name: string) => Entity("free-text", name, String);
+export const Keywords = (name: string, lits: string[]) => {
+    return Entity("keywords", name, Union.apply(Union, lits.map(Literal)));
+};
+export const Trait = (name: string, ps: { [key: string]: Runtype<any> }) => {
+    let recs = Object.keys(ps).map(x => {
+        return Record({
+            tag: Literal(x),
+            data: ps[x]
+        });
+    });
+    return Entity("trait", name, Union.apply(Union, recs));
+};

@@ -1,7 +1,17 @@
+import {
+    String,
+    Literal,
+    Record,
+    Union,
+    Union1,
+    Union2,
+    Entity,
+    Runtype,
+    Static
+} from "../lib/runtypes/src/index";
 import * as rp from "request-promise";
-import { Decl, Ty } from "./lib";
 
-export interface Entity {
+export interface ResponseEntity {
     value: any;
     confidence: number;
 }
@@ -10,12 +20,11 @@ export interface Response {
     msg_id: string;
     _text: string;
     entities: {
-        [key: string]: Entity[];
+        [key: string]: ResponseEntity[];
     }
 }
-
 export class Wit {
-    constructor(private token: string, private decls: Decl[]) { }
+    constructor(private token: string) { }
 
     async callAPI(query: string): Promise<Response> {
         const fmtQuery = encodeURIComponent(query);
@@ -30,47 +39,49 @@ export class Wit {
         return JSON.parse(result);
     }
 
-    private walkTy(ty: Ty, res: Response): any {
-        switch (ty.kind) {
-            case "Def":
-                let decl = this.decls.find((x) => x.tag == ty.data);
-                if (!decl) throw new Error("Could not parse response.");
-                return this.walkDecl(decl, res);
-            case "Lit":
-                return ty.data;
-            case "Rec":
+    private getValue(r: Response, e: string): any {
+        return r.entities[e][0].value;
+    }
+
+    public parse<T>(rt: Runtype<any>, res: Response): T {
+        return rt.check(this._parse(rt, res)) as T;
+    }
+
+    private _parse(rt: Runtype<any>, res: Response): any {
+        switch (rt.reflect.tag) {
+            case "entity": {
+                switch (rt.reflect.strategy) {
+                    case "free-text":
+                        return this.getValue(res, rt.reflect.name);
+                    case "keywords":
+                        return this.getValue(res, rt.reflect.name);
+                    case "trait": {
+                        let val = this.getValue(res, rt.reflect.name);
+                        let typ = rt.reflect.typ;
+                        if (typ.tag == "union") {
+                            let alt = typ.alternatives.find(x => {
+                                return (<any>x).fields.tag.value == val;
+                            });
+                            if (alt) {
+                                return this._parse(alt, res);
+                            }
+                        }
+                    }
+                }
+            }
+            case "literal": {
+                return rt.check((<any>rt.reflect).value);
+            }
+            case "record": {
+                let flds = rt.reflect.fields;
                 let obj: any = {};
-                ty.data.forEach((p) => {
-                    obj[p[0]] = this.walkTy(p[1], res);
+                Object.keys(flds).forEach(x => {
+                    obj[x] = this._parse(flds[x], res);
                 });
                 return obj;
+            }
+            default:
+                return null;
         }
-    }
-
-    private walkDecl(decl: Decl, res: Response): any {
-        switch (decl.kind) {
-            case "FreeText":
-                return res.entities[decl.tag][0].value;
-            case "Keywords":
-                return res.entities[decl.tag][0].value;
-            case "Trait":
-                let val = res.entities[decl.tag][0].value;
-                let obj: any;
-                let p = decl.data.find((p) => p[0] == val);
-                if (p) {
-                    obj = this.walkTy(p[1], res);
-                }
-                return { kind: val, data: obj };
-            case "TyDec":
-                return this.walkTy(decl.data, res);
-        }
-    }
-
-    parse<T>(res: Response, tag: string): T {
-        let decl = this.decls.find((x) => x.tag == tag);
-
-        if (!decl) throw new Error("Could not parse response.");
-
-        return <T>this.walkDecl(decl, res);
     }
 }
