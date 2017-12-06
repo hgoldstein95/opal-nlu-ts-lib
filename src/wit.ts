@@ -60,7 +60,13 @@ export class Wit {
                         let typ = rt.reflect.typ;
                         if (typ.tag == "union") {
                             let alt = typ.alternatives.find(x => {
-                                return (<any>x).fields.tag.value == val;
+                                if (x.tag === "record") {
+                                    let tag = x.fields.tag;
+                                    if (tag.tag === "literal") {
+                                        return tag.value == val;
+                                    }
+                                }
+                                return false;
                             });
                             if (alt) {
                                 return this._parse(alt, res);
@@ -68,9 +74,10 @@ export class Wit {
                         }
                     }
                 }
+                return null;
             }
             case "literal": {
-                return rt.check((<any>rt.reflect).value);
+                return rt.reflect.value;
             }
             case "record": {
                 let flds = rt.reflect.fields;
