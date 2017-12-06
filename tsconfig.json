@@ -1,8 +1,7 @@
  {
-     "files": [
-         "src/main.ts",
-         "src/wit.ts",
-         "src/lib.ts"
+     "include": [
+         "src/**/*",
+         "lib/**/*"
      ],
      "compilerOptions": {
          "noImplicitAny": true,
